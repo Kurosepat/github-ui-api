@@ -1,30 +1,31 @@
 const express = require('express');
 const fetch = require('node-fetch');
-const bodyParser = require('body-parser');
+const multer = require('multer');
+const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// JSONボディを扱えるようにする
-app.use(bodyParser.json());
+const upload = multer();
+app.use(cors()); // CORSエラー対策（Render + フロントエンド連携用）
 
-// POST /api/upload：Make Webhookへ送信 → recordId を返す
-app.post('/api/upload', async (req, res) => {
+// POST /api/upload（FormData用）
+app.post('/api/upload', upload.none(), async (req, res) => {
   const makeWebhookUrl = process.env.MAKE_WEBHOOK_URL;
+  const payload = req.body; // ← フォームデータのテキスト部分だけ（ファイルはUI側でCloudConvert）
 
   try {
     const response = await fetch(makeWebhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body)
+      body: JSON.stringify(payload)
     });
 
     const data = await response.json();
 
-    // Makeからの応答が { recordId: "recXXXXXXXX" } の形式であることを想定
     if (data.recordId && typeof data.recordId === 'string') {
-      res.send(data.recordId); // UIが期待する文字列形式
+      res.send(data.recordId);
     } else {
       console.error('recordIdが見つかりません:', data);
       res.status(500).send('recordIdの取得に失敗しました');
@@ -35,7 +36,7 @@ app.post('/api/upload', async (req, res) => {
   }
 });
 
-// GET /api/get-result：AirtableのCheck_resultを取得
+// GET /api/get-result：Airtable取得処理（変わらず）
 app.get('/api/get-result', async (req, res) => {
   const id = req.query.id;
   if (!id) return res.status(400).send('レコードIDが指定されていません');
@@ -66,12 +67,11 @@ app.get('/api/get-result', async (req, res) => {
   }
 });
 
-// ✅ Render の "/" にアクセスされたときのルート（これが今回追加分！）
+// ヘルスチェック用
 app.get('/', (req, res) => {
   res.send('🟢 Relay Server is running!');
 });
 
-// サーバー起動
 app.listen(port, () => {
   console.log(`中継サーバー起動中: http://localhost:${port}`);
 });
