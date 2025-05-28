@@ -66,6 +66,11 @@ app.get('/api/get-result', async (req, res) => {
   }
 });
 
+// ✅ Render の "/" にアクセスされたときのルート（これが今回追加分！）
+app.get('/', (req, res) => {
+  res.send('🟢 Relay Server is running!');
+});
+
 // サーバー起動
 app.listen(port, () => {
   console.log(`中継サーバー起動中: http://localhost:${port}`);
