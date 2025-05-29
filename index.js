@@ -8,12 +8,24 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 const upload = multer();
-app.use(cors()); // CORSエラー対策（Render + フロントエンド連携用）
+app.use(cors());
 
-// POST /api/upload（FormData用）
+app.get('/', (req, res) => {
+  res.send('🟢 Relay Server is running!');
+});
+
+// POST /api/upload
 app.post('/api/upload', upload.none(), async (req, res) => {
   const makeWebhookUrl = process.env.MAKE_WEBHOOK_URL;
-  const payload = req.body; // ← フォームデータのテキスト部分だけ（ファイルはUI側でCloudConvert）
+  const payload = req.body;
+
+  if (!makeWebhookUrl) {
+    console.error('❌ MAKE_WEBHOOK_URL が設定されていません');
+    return res.status(500).send('サーバー構成エラー: Webhook URL未設定');
+  }
+
+  console.log('🔥 /api/upload POST 受信');
+  console.log('📦 payload:', payload);
 
   try {
     const response = await fetch(makeWebhookUrl, {
@@ -25,18 +37,19 @@ app.post('/api/upload', upload.none(), async (req, res) => {
     const data = await response.json();
 
     if (data.recordId && typeof data.recordId === 'string') {
+      console.log('✅ recordId 取得:', data.recordId);
       res.send(data.recordId);
     } else {
-      console.error('recordIdが見つかりません:', data);
+      console.error('❌ recordIdが見つかりません:', data);
       res.status(500).send('recordIdの取得に失敗しました');
     }
   } catch (error) {
-    console.error('Make Webhook 呼び出しエラー:', error);
+    console.error('❌ Make Webhook 呼び出しエラー:', error);
     res.status(500).send('中継サーバーエラー');
   }
 });
 
-// GET /api/get-result：Airtable取得処理（変わらず）
+// GET /api/get-result
 app.get('/api/get-result', async (req, res) => {
   const id = req.query.id;
   if (!id) return res.status(400).send('レコードIDが指定されていません');
@@ -62,16 +75,11 @@ app.get('/api/get-result', async (req, res) => {
     const result = data.fields?.Check_result || '結果が存在しません';
     res.send(result);
   } catch (error) {
-    console.error('中継サーバーエラー:', error);
+    console.error('❌ Airtable取得エラー:', error);
     res.status(500).send('中継サーバー内部エラー');
   }
 });
 
-// ヘルスチェック用
-app.get('/', (req, res) => {
-  res.send('🟢 Relay Server is running!');
-});
-
 app.listen(port, () => {
-  console.log(`中継サーバー起動中: http://localhost:${port}`);
+  console.log(`🚀 中継サーバー起動: http://localhost:${port}`);
 });
