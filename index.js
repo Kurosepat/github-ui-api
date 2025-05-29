@@ -7,14 +7,14 @@ require('dotenv').config();
 
 const app = express();
 const upload = multer();
-app.use(cors()); // 全体ミドルウェアとして許可
+app.use(cors());
 
 // 動作確認用
 app.get('/', (req, res) => {
   res.send('🟢 Relay Server is running!');
 });
 
-// ファイル付きでMakeに中継する
+// Make へファイル付きで中継
 app.post('/api/upload', upload.any(), async (req, res) => {
   const makeWebhookUrl = process.env.MAKE_WEBHOOK_URL;
   if (!makeWebhookUrl) {
@@ -25,12 +25,10 @@ app.post('/api/upload', upload.any(), async (req, res) => {
   try {
     const form = new FormData();
 
-    // フィールド追加
     form.append('shoin_id', req.body.shoin_id);
     form.append('seiri_no', req.body.seiri_no);
     form.append('date', req.body.date);
 
-    // ファイルをフォームに追加
     for (const file of req.files) {
       form.append(file.fieldname, file.buffer, {
         filename: file.originalname,
@@ -38,7 +36,6 @@ app.post('/api/upload', upload.any(), async (req, res) => {
       });
     }
 
-    // Make に送信
     const response = await fetch(makeWebhookUrl, {
       method: 'POST',
       body: form,
@@ -48,21 +45,20 @@ app.post('/api/upload', upload.any(), async (req, res) => {
     const resultText = await response.text();
     console.log('✅ recordId:', resultText);
 
-    // 🔧 CORSエラー対策：ヘッダー追加
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'text/plain');
-
     res.send(resultText);
-
   } catch (error) {
-    console.error('❌ エラー:', error);
+    console.error('❌ 中継サーバーエラー:', error);
     res.status(500).send('中継サーバーエラー');
   }
 });
 
-// Airtable から結果取得
+// Airtable からチェック結果を取得
 app.get('/api/get-result', async (req, res) => {
   const id = req.query.id;
+  console.log("取得リクエストID:", id);
+
   if (!id) return res.status(400).send('レコードIDが必要です');
 
   const { AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME } = process.env;
@@ -76,16 +72,17 @@ app.get('/api/get-result', async (req, res) => {
     });
 
     if (!response.ok) {
+      const errorBody = await response.text();
+      console.error("Airtableリクエスト失敗:", errorBody);
       return res.status(response.status).send('Airtableリクエスト失敗');
     }
 
     const data = await response.json();
-    const result = data.fields?.Check_result || '結果が存在しません';
+    const raw = data.fields?.Check_result;
+    const result = raw && raw.trim() !== '' ? raw : '結果が存在しません';
 
-    // 念のためここにもCORS許可
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'text/plain');
-
     res.send(result);
   } catch (error) {
     console.error('❌ Airtable取得エラー:', error);
