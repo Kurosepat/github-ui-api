@@ -15,7 +15,7 @@ app.get('/', (req, res) => {
 });
 
 // POST /api/upload
-app.post('/api/upload', upload.none(), async (req, res) => {
+app.post('/api/upload', upload.any(), async (req, res) => {
   const makeWebhookUrl = process.env.MAKE_WEBHOOK_URL;
   const payload = req.body;
 
