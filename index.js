@@ -38,7 +38,7 @@ app.post('/api/upload', upload.any(), async (req, res) => {
 
     if (data.recordId && typeof data.recordId === 'string') {
       console.log('✅ recordId 取得:', data.recordId);
-      res.send(data.recordId);
+      res.json({ recordId: data.recordId });
     } else {
       console.error('❌ recordIdが見つかりません:', data);
       res.status(500).send('recordIdの取得に失敗しました');
