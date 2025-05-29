@@ -10,6 +10,7 @@ const port = process.env.PORT || 3000;
 const upload = multer();
 app.use(cors());
 
+// 動作確認用ルート
 app.get('/', (req, res) => {
   res.send('🟢 Relay Server is running!');
 });
@@ -34,15 +35,11 @@ app.post('/api/upload', upload.any(), async (req, res) => {
       body: JSON.stringify(payload)
     });
 
-    const data = await response.json();
+    const resultText = await response.text(); // ← プレーンテキストとして受信
+    console.log('✅ recordId 取得:', resultText);
 
-    if (data.recordId && typeof data.recordId === 'string') {
-      console.log('✅ recordId 取得:', data.recordId);
-      res.json({ recordId: data.recordId });
-    } else {
-      console.error('❌ recordIdが見つかりません:', data);
-      res.status(500).send('recordIdの取得に失敗しました');
-    }
+    res.send(resultText); // ← そのままUIに返す
+
   } catch (error) {
     console.error('❌ Make Webhook 呼び出しエラー:', error);
     res.status(500).send('中継サーバーエラー');
