@@ -77,6 +77,9 @@ app.get('/api/get-result', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`🚀 中継サーバー起動: http://localhost:${port}`);
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`🚀 中継サーバー起動: http://localhost:${PORT}`);
 });
+
