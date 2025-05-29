@@ -2,69 +2,76 @@ const express = require('express');
 const fetch = require('node-fetch');
 const multer = require('multer');
 const cors = require('cors');
+const FormData = require('form-data');
 require('dotenv').config();
 
 const app = express();
-
 const upload = multer();
 app.use(cors());
 
-// 動作確認用ルート
+// 動作確認用
 app.get('/', (req, res) => {
   res.send('🟢 Relay Server is running!');
 });
 
-// POST /api/upload
+// ファイル付きでMakeに中継する
 app.post('/api/upload', upload.any(), async (req, res) => {
   const makeWebhookUrl = process.env.MAKE_WEBHOOK_URL;
-  const payload = req.body;
-
   if (!makeWebhookUrl) {
-    console.error('❌ MAKE_WEBHOOK_URL が設定されていません');
-    return res.status(500).send('サーバー構成エラー: Webhook URL未設定');
+    console.error('❌ MAKE_WEBHOOK_URL が未設定');
+    return res.status(500).send('Webhook URL未設定');
   }
 
-  console.log('🔥 /api/upload POST 受信');
-  console.log('📦 payload:', payload);
-
   try {
+    const form = new FormData();
+
+    // フィールド追加
+    form.append('shoin_id', req.body.shoin_id);
+    form.append('seiri_no', req.body.seiri_no);
+    form.append('date', req.body.date);
+
+    // ファイルをフォームに追加
+    for (const file of req.files) {
+      form.append(file.fieldname, file.buffer, {
+        filename: file.originalname,
+        contentType: file.mimetype
+      });
+    }
+
+    // Make に送信
     const response = await fetch(makeWebhookUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: form,
+      headers: form.getHeaders()
     });
 
-    const resultText = await response.text(); // ← プレーンテキストとして受信
-    console.log('✅ recordId 取得:', resultText);
-
-    res.send(resultText); // ← そのままUIに返す
+    const resultText = await response.text();
+    console.log('✅ recordId:', resultText);
+    res.send(resultText);
 
   } catch (error) {
-    console.error('❌ Make Webhook 呼び出しエラー:', error);
+    console.error('❌ エラー:', error);
     res.status(500).send('中継サーバーエラー');
   }
 });
 
-// GET /api/get-result
+// Airtable から結果取得
 app.get('/api/get-result', async (req, res) => {
   const id = req.query.id;
-  if (!id) return res.status(400).send('レコードIDが指定されていません');
+  if (!id) return res.status(400).send('レコードIDが必要です');
 
-  const baseId = process.env.AIRTABLE_BASE_ID;
-  const tableName = process.env.AIRTABLE_TABLE_NAME;
-  const apiKey = process.env.AIRTABLE_API_KEY;
-
-  const url = `https://api.airtable.com/v0/${baseId}/${tableName}/${id}`;
+  const { AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME } = process.env;
+  const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}/${id}`;
 
   try {
     const response = await fetch(url, {
       headers: {
-        Authorization: `Bearer ${apiKey}`
+        Authorization: `Bearer ${AIRTABLE_API_KEY}`
       }
     });
 
     if (!response.ok) {
-      return res.status(response.status).send('Airtableへのリクエストに失敗しました');
+      return res.status(response.status).send('Airtableリクエスト失敗');
     }
 
     const data = await response.json();
@@ -72,13 +79,11 @@ app.get('/api/get-result', async (req, res) => {
     res.send(result);
   } catch (error) {
     console.error('❌ Airtable取得エラー:', error);
-    res.status(500).send('中継サーバー内部エラー');
+    res.status(500).send('サーバー内部エラー');
   }
 });
 
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
   console.log(`🚀 中継サーバー起動: http://localhost:${PORT}`);
 });
-
