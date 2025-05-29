@@ -7,7 +7,7 @@ require('dotenv').config();
 
 const app = express();
 const upload = multer();
-app.use(cors());
+app.use(cors()); // 全体ミドルウェアとして許可
 
 // 動作確認用
 app.get('/', (req, res) => {
@@ -47,6 +47,11 @@ app.post('/api/upload', upload.any(), async (req, res) => {
 
     const resultText = await response.text();
     console.log('✅ recordId:', resultText);
+
+    // 🔧 CORSエラー対策：ヘッダー追加
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', 'text/plain');
+
     res.send(resultText);
 
   } catch (error) {
@@ -76,6 +81,11 @@ app.get('/api/get-result', async (req, res) => {
 
     const data = await response.json();
     const result = data.fields?.Check_result || '結果が存在しません';
+
+    // 念のためここにもCORS許可
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', 'text/plain');
+
     res.send(result);
   } catch (error) {
     console.error('❌ Airtable取得エラー:', error);
