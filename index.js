@@ -1,96 +1,42 @@
-const express = require('express');
-const fetch = require('node-fetch');
-const multer = require('multer');
-const cors = require('cors');
-const FormData = require('form-data');
-require('dotenv').config();
+const express = require("express");
+const Airtable = require("airtable");
+const cors = require("cors");
 
 const app = express();
-const upload = multer();
 app.use(cors());
 
-// 動作確認用
-app.get('/', (req, res) => {
-  res.send('🟢 Relay Server is running!');
-});
-
-// Make へファイル付きで中継
-app.post('/api/upload', upload.any(), async (req, res) => {
-  const makeWebhookUrl = process.env.MAKE_WEBHOOK_URL;
-  if (!makeWebhookUrl) {
-    console.error('❌ MAKE_WEBHOOK_URL が未設定');
-    return res.status(500).send('Webhook URL未設定');
-  }
-
-  try {
-    const form = new FormData();
-
-    form.append('shoin_id', req.body.shoin_id);
-    form.append('seiri_no', req.body.seiri_no);
-    form.append('date', req.body.date);
-
-    for (const file of req.files) {
-      form.append(file.fieldname, file.buffer, {
-        filename: file.originalname,
-        contentType: file.mimetype
-      });
-    }
-
-    const response = await fetch(makeWebhookUrl, {
-      method: 'POST',
-      body: form,
-      headers: form.getHeaders()
-    });
-
-    const resultText = await response.text();
-    console.log('✅ recordId:', resultText);
-
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Content-Type', 'text/plain');
-    res.send(resultText);
-  } catch (error) {
-    console.error('❌ 中継サーバーエラー:', error);
-    res.status(500).send('中継サーバーエラー');
-  }
-});
-
-// Airtable からチェック結果を取得
-app.get('/api/get-result', async (req, res) => {
-  const id = req.query.id;
-  console.log("取得リクエストID:", id);
-
-  if (!id) return res.status(400).send('レコードIDが必要です');
-
-  const { AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME } = process.env;
-  const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}/${id}`;
-
-  try {
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${AIRTABLE_API_KEY}`
-      }
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      console.error("Airtableリクエスト失敗:", errorBody);
-      return res.status(response.status).send('Airtableリクエスト失敗');
-    }
-
-    const data = await response.json();
-    const raw = data.fields?.Check_result;
-    const result = raw && raw.trim() !== '' ? raw : '結果が存在しません';
-
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Content-Type', 'text/plain');
-    res.send(result);
-  } catch (error) {
-    console.error('❌ Airtable取得エラー:', error);
-    res.status(500).send('サーバー内部エラー');
-  }
-});
-
 const PORT = process.env.PORT || 3000;
+
+// Airtable設定
+const base = new Airtable({
+  apiKey: "patJzbktMMmBfYhpO.c3a21dc3354b758e9581f207615fac87bec5d247172d2e7deb99450464d23db9"
+}).base("apptPO8m6mlP4pZbU");
+
+// GET /api/get-result?id=recXXXX
+app.get("/api/get-result", async (req, res) => {
+  const recordId = req.query.id;
+
+  if (!recordId) {
+    return res.status(400).send("❌ recordIdが指定されていません");
+  }
+
+  try {
+    const record = await base("Check Results").find(recordId);
+
+    const fields = record.fields;
+
+    const resultText = [
+      fields["チェック結果"] ? `チェック結果:\n${fields["チェック結果"]}` : "",
+      fields["重要度"] ? `重要度: ${fields["重要度"]}` : ""
+    ].filter(Boolean).join("\n\n");
+
+    res.send(resultText || "⚠️ 結果が見つかりませんでした");
+  } catch (err) {
+    console.error("Airtable取得エラー:", err.statusCode, err.message);
+    res.status(500).send("結果が存在しません");
+  }
+});
+
 app.listen(PORT, () => {
-  console.log(`🚀 中継サーバー起動: http://localhost:${PORT}`);
+  console.log(`Server listening on port ${PORT}`);
 });
