@@ -1,3 +1,5 @@
+require("dotenv").config(); // ← 1行目に追加！
+
 const express = require("express");
 const Airtable = require("airtable");
 const cors = require("cors");
@@ -7,9 +9,9 @@ app.use(cors());
 
 const PORT = process.env.PORT || 3000;
 
-// Airtable設定
+// Airtable設定（APIキーは.envから取得）
 const base = new Airtable({
-  apiKey: "patJzbktMMmBfYhpO.c3a21dc3354b758e9581f207615fac87bec5d247172d2e7deb99450464d23db9"
+  apiKey: process.env.AIRTABLE_API_KEY
 }).base("apptPO8m6mlP4pZbU");
 
 // GET /api/get-result?id=recXXXX
