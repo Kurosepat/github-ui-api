@@ -29,6 +29,7 @@ app.post('/api/upload', upload.any(), async (req, res) => {
     });
 
     const resultText = await response.text();
+res.status(200).json(JSON.parse(resultText)); // ← これで本物の JSON にして渡す！
 
     if (response.ok) {
       res.status(200).json(JSON.parse(resultText));
