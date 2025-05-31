@@ -20,7 +20,7 @@ app.post('/api/upload', upload.any(), async (req, res) => {
       formData.append(file.fieldname, file.buffer, file.originalname);
     }
 
-    const makeWebhookURL = 'https://hook.us2.make.com/2oi6xu9uwoep5xbj7y8ir4qq4c6jvctf';
+    const makeWebhookURL = 'https://hook.us2.make.com/7ya79qm3ttvxoq6taks4wvto37hrcfjb';
 
     const response = await fetch(makeWebhookURL, {
       method: 'POST',
