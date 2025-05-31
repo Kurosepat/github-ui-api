@@ -30,39 +30,17 @@ app.post('/api/upload', upload.any(), async (req, res) => {
 
     const resultText = await response.text();
 
-    try {
-      const json = JSON.parse(resultText);
-
-      if (response.ok) {
-        const recordId = json.body;
-
-        if (recordId && recordId.startsWith("rec")) {
-          // ✅ 成功時：result.html にリダイレクト
-          res.redirect(`/result.html?recordId=${recordId}`);
-        } else {
-          res.status(500).send("recordId の形式が不正です。");
-        }
-      } else {
-        console.error('Make側が非200:', resultText);
-        res.status(response.status).json({
-          error: 'Make側でエラーが発生しました',
-          details: json
-        });
-      }
-    } catch (parseError) {
-      console.error('JSONパースエラー:', parseError);
-      console.error('返ってきた生データ:', resultText);
-      res.status(500).json({
-        error: 'JSONパースに失敗しました',
-        raw: resultText
-      });
+    // 🔁 元の挙動に戻す：そのまま送信（JSONパースせず）
+    if (response.ok) {
+      res.status(200).send(resultText);
+    } else {
+      console.error('Make側エラー:', resultText);
+      res.status(response.status).send(`Make側エラー: ${resultText}`);
     }
+
   } catch (error) {
     console.error('中継エラー:', error);
-    res.status(500).json({
-      error: '中継サーバー内部エラー',
-      message: error.message
-    });
+    res.status(500).send('中継サーバー内部エラー');
   }
 });
 
