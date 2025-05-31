@@ -1,44 +1,47 @@
-require("dotenv").config(); // ← 1行目に追加！
-
-const express = require("express");
-const Airtable = require("airtable");
-const cors = require("cors");
+const express = require('express');
+const multer = require('multer');
+const fetch = require('node-fetch');
+const cors = require('cors');
+const FormData = require('form-data');
 
 const app = express();
+const upload = multer();
 app.use(cors());
 
-const PORT = process.env.PORT || 3000;
-
-// Airtable設定（APIキーは.envから取得）
-const base = new Airtable({
-  apiKey: process.env.AIRTABLE_API_KEY
-}).base("apptPO8m6mlP4pZbU");
-
-// GET /api/get-result?id=recXXXX
-app.get("/api/get-result", async (req, res) => {
-  const recordId = req.query.id;
-
-  if (!recordId) {
-    return res.status(400).send("❌ recordIdが指定されていません");
-  }
-
+app.post('/api/upload', upload.any(), async (req, res) => {
   try {
-    const record = await base("Check Results").find(recordId);
+    const formData = new FormData();
 
-    const fields = record.fields;
+    formData.append('shoin_id', req.body.shoin_id || '');
+    formData.append('seiri_no', req.body.seiri_no || '');
+    formData.append('date', req.body.date || '');
 
-    const resultText = [
-      fields["チェック結果"] ? `チェック結果:\n${fields["チェック結果"]}` : "",
-      fields["重要度"] ? `重要度: ${fields["重要度"]}` : ""
-    ].filter(Boolean).join("\n\n");
+    for (const file of req.files) {
+      formData.append(file.fieldname, file.buffer, file.originalname);
+    }
 
-    res.send(resultText || "⚠️ 結果が見つかりませんでした");
-  } catch (err) {
-    console.error("Airtable取得エラー:", err.statusCode, err.message);
-    res.status(500).send("結果が存在しません");
+    const makeWebhookURL = 'https://hook.us2.make.com/2oi6xu9uwoep5xbj7y8ir4qq4c6jvctf';
+
+    const response = await fetch(makeWebhookURL, {
+      method: 'POST',
+      body: formData,
+      headers: formData.getHeaders()
+    });
+
+    const resultText = await response.text();
+
+    if (response.ok) {
+      res.status(200).send('中継完了');
+    } else {
+      res.status(response.status).send(`Make側エラー: ${resultText}`);
+    }
+  } catch (error) {
+    console.error('中継エラー:', error);
+    res.status(500).send('中継サーバー内部エラー');
   }
 });
 
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+  console.log(`中継サーバー起動中: http://localhost:${PORT}`);
 });
