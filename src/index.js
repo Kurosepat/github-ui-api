@@ -29,16 +29,33 @@ app.post('/api/upload', upload.any(), async (req, res) => {
     });
 
     const resultText = await response.text();
-res.status(200).json(JSON.parse(resultText)); // ← これで本物の JSON にして渡す！
 
-    if (response.ok) {
-      res.status(200).json(JSON.parse(resultText));
-    } else {
-      res.status(response.status).send(`Make側エラー: ${resultText}`);
+    try {
+      const json = JSON.parse(resultText);
+
+      if (response.ok) {
+        res.status(200).json(json); // 正常なJSONをそのまま返す
+      } else {
+        console.error('Make側が非200:', resultText);
+        res.status(response.status).json({
+          error: 'Make側でエラーが発生しました',
+          details: json
+        });
+      }
+    } catch (parseError) {
+      console.error('JSONパースエラー:', parseError);
+      console.error('返ってきた生データ:', resultText);
+      res.status(500).json({
+        error: 'JSONパースに失敗しました',
+        raw: resultText
+      });
     }
   } catch (error) {
     console.error('中継エラー:', error);
-    res.status(500).send('中継サーバー内部エラー');
+    res.status(500).json({
+      error: '中継サーバー内部エラー',
+      message: error.message
+    });
   }
 });
 
