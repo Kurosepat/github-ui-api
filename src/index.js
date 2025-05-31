@@ -34,7 +34,14 @@ app.post('/api/upload', upload.any(), async (req, res) => {
       const json = JSON.parse(resultText);
 
       if (response.ok) {
-        res.status(200).json(json); // 正常なJSONをそのまま返す
+        const recordId = json.body;
+
+        if (recordId && recordId.startsWith("rec")) {
+          // ✅ 成功時：result.html にリダイレクト
+          res.redirect(`/result.html?recordId=${recordId}`);
+        } else {
+          res.status(500).send("recordId の形式が不正です。");
+        }
       } else {
         console.error('Make側が非200:', resultText);
         res.status(response.status).json({
