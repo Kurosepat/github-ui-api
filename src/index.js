@@ -31,9 +31,19 @@ app.post('/api/upload', upload.any(), async (req, res) => {
     const resultText = await response.text();
 
     if (response.ok) {
-      const json = JSON.parse(resultText);          // ★ここでパース
-      const recordId = json.body;                   // ★recordIdだけ抽出
-      res.redirect(`/result.html?recordId=${recordId}`);
+      let recordId;
+
+      // 結果が JSON 形式なら解析
+      try {
+        const json = JSON.parse(resultText);
+        recordId = json.body || json.recordId;
+      } catch {
+        // そうでなければそのまま使う（recordId想定）
+        recordId = resultText.trim();
+      }
+
+      // ✅ GitHub UI 側のURLにリダイレクト（必要に応じてURLを調整）
+      res.redirect(`https://github-ui-9n8z.onrender.com/result.html?recordId=${encodeURIComponent(recordId)}`);
     } else {
       console.error('Make側エラー:', resultText);
       res.status(response.status).send(`Make側エラー: ${resultText}`);
