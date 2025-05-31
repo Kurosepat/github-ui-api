@@ -31,7 +31,7 @@ app.post('/api/upload', upload.any(), async (req, res) => {
     const resultText = await response.text();
 
     if (response.ok) {
-      res.status(200).send(resultText);
+      res.status(200).json(JSON.parse(resultText));
     } else {
       res.status(response.status).send(`Make側エラー: ${resultText}`);
     }
