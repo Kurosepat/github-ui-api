@@ -32,7 +32,7 @@ app.post('/api/upload', upload.any(), async (req, res) => {
 
     // 🔁 元の挙動に戻す：そのまま送信（JSONパースせず）
     if (response.ok) {
-      res.status(200).send(resultText);
+      res.redirect(`/result.html?recordId=${resultText}`);
     } else {
       console.error('Make側エラー:', resultText);
       res.status(response.status).send(`Make側エラー: ${resultText}`);
