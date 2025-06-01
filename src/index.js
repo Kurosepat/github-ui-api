@@ -3,11 +3,17 @@ const multer = require('multer');
 const fetch = require('node-fetch');
 const cors = require('cors');
 const FormData = require('form-data');
+const Airtable = require('airtable');
 
 const app = express();
 const upload = multer();
 app.use(cors());
 
+// 環境変数から Airtable の設定を読み込む
+const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID);
+const tableName = 'Check Results'; // ← あなたのテーブル名
+
+// POST: ファイルを Make に送信
 app.post('/api/upload', upload.any(), async (req, res) => {
   try {
     const formData = new FormData();
@@ -33,16 +39,13 @@ app.post('/api/upload', upload.any(), async (req, res) => {
     if (response.ok) {
       let recordId;
 
-      // 結果が JSON 形式なら解析
       try {
         const json = JSON.parse(resultText);
         recordId = json.body || json.recordId;
       } catch {
-        // そうでなければそのまま使う（recordId想定）
         recordId = resultText.trim();
       }
 
-      // ✅ redirect やめて JSON で recordId を返す
       res.status(200).json({ recordId: recordId });
 
     } else {
@@ -53,6 +56,23 @@ app.post('/api/upload', upload.any(), async (req, res) => {
   } catch (error) {
     console.error('中継エラー:', error);
     res.status(500).send('中継サーバー内部エラー');
+  }
+});
+
+// GET: Airtableからチェック結果を取得
+app.get('/api/get-result', async (req, res) => {
+  const recordId = req.query.id;
+
+  if (!recordId) {
+    return res.status(400).json({ error: 'recordId is required' });
+  }
+
+  try {
+    const record = await base(tableName).find(recordId);
+    res.json({ result: record.fields });
+  } catch (err) {
+    console.error('Airtable取得エラー:', err);
+    res.status(500).json({ error: '結果取得失敗' });
   }
 });
 
