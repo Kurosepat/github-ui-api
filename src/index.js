@@ -42,8 +42,9 @@ app.post('/api/upload', upload.any(), async (req, res) => {
         recordId = resultText.trim();
       }
 
-      // ✅ GitHub UI 側のURLにリダイレクト（必要に応じてURLを調整）
-      res.redirect(`https://github-ui-9n8z.onrender.com/result.html?recordId=${encodeURIComponent(recordId)}`);
+      // ✅ redirect やめて JSON で recordId を返す
+      res.status(200).json({ recordId: recordId });
+
     } else {
       console.error('Make側エラー:', resultText);
       res.status(response.status).send(`Make側エラー: ${resultText}`);
